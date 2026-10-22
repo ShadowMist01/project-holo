@@ -1,88 +1,97 @@
-# Project Holo — Arduino serial reader
+# Project Holo — Hand Tracking
 
-A small Python utility that opens a serial port, reads lines sent by an Arduino and prints them to the console. It is a historical prototype helper, not a finished application.
+A small webcam hand-tracking prototype. It is the tracking stage of the broader **Hand Tracking System for Computer Control** described in the author's CV and annexes. The supplied source shows the tracking and preview part only.
 
-This repository contains **only the host-side Python script**. No Arduino firmware, display or visualisation code is included, so it cannot reproduce the full original project on its own.
+- Original implementation: [`main.py`](main.py) (preserved unchanged)
+- Camera-free check: [`test_tracking.py`](test_tracking.py)
+- Documentation: [`docs/PROJECT_DOCUMENTATION.md`](docs/PROJECT_DOCUMENTATION.md)
 
-## What it does
+## What the source does
 
-1. Lists the serial ports it can find (`pyserial`).
-2. Opens the one you choose at 9600 baud by default.
-3. Prints each received line (decoded as UTF-8, replacing undecodable bytes) until you press `Ctrl+C`.
+`main.py` runs as a script and does the following:
 
-## How it works
+1. Opens the default webcam (`cv2.VideoCapture(0)`) when the file is run or imported.
+2. Reads a frame (BGR) and converts it to RGB with OpenCV.
+3. Runs MediaPipe Hands (`mp.solutions.hands.Hands()`, default settings) on the RGB frame.
+4. For each detected hand, loops over its landmarks and converts the normalized coordinates to pixel positions.
+5. Draws a filled magenta circle on landmark 20 (the pinky fingertip).
+6. Draws the MediaPipe hand skeleton on the frame.
+7. Shows the frame in a window named `Output` and repeats.
+
+## Architecture
 
 ```mermaid
 flowchart TD
-    accTitle: Project Holo - serial reader data flow
-    accDescr: An Arduino running firmware that is not included writes newline-terminated text over USB serial. The Python script lists ports, opens the chosen one, reads lines with a one second timeout, decodes them as UTF-8 and prints them to the console until Ctrl+C.
-    A["Arduino firmware<br/>(not in this repo)"] -->|"text lines"| B["USB serial port"]
-    B -->|"read lines"| C["Python reader script"]
-    C -->|"decode and print"| D["Console output"]
+    accTitle: Project Holo hand-tracking loop
+    accDescr: The webcam supplies a BGR frame. The frame is converted to RGB and processed by MediaPipe Hands. When hands are detected, landmarks are used to draw a marker on landmark 20 and the hand skeleton; otherwise the unannotated frame is shown. The annotated frame is shown in a preview window, then the loop reads the next frame.
+    A[Webcam 0] --> B[BGR frame]
+    B --> C[Convert BGR to RGB]
+    C --> D[MediaPipe Hands]
+    D --> H{Hands detected?}
+    H -->|yes| E[Landmarks to pixel positions]
+    H -->|no| G
+    E --> F[Overlay: landmark 20 circle and skeleton]
+    F --> G[Preview window]
+    G -->|repeat| A
 ```
-
-*Read-only: the script prints what the device sends and never writes back. No display or visualisation code is included.*
-
-## Requirements
-
-- Python 3.8 or newer
-- [`pyserial`](https://pypi.org/project/pyserial/) (see `requirements.txt`)
-- An Arduino (or any device) that writes newline-terminated text to its serial port
-
-## Setup
-
-```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate      macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Usage
-
-The file name contains spaces, so quote it:
-
-```bash
-# Prompts for a COM number (Windows-style, e.g. type 3 for COM3)
-python "Serial Arduino - Python.py"
-
-# Or name the port directly (also works with /dev/ttyACM0, etc.)
-python "Serial Arduino - Python.py" --port COM3
-python "Serial Arduino - Python.py" --port /dev/ttyACM0 --baud 115200
-```
-
-Options:
-
-| Option | Meaning | Default |
-|---|---|---|
-| `--port` | Serial port name | prompt for a COM number |
-| `--baud` | Baud rate (must match the Arduino's `Serial.begin`) | `9600` |
-
-Close the Arduino IDE serial monitor first, because only one program can hold the port.
 
 ## Repository layout
 
-```
-Serial Arduino - Python.py   the serial reader (entry point)
-requirements.txt             Python dependency (pyserial)
-test_serial_reader.py        mocked unit tests (no hardware)
-README.md
-```
+| Path | Purpose |
+|---|---|
+| `main.py` | The original hand-tracking script, unchanged |
+| `test_tracking.py` | Dependency-free, substituted-module frame check |
+| `requirements.txt` | Proposed dependency set (see Setup) |
+| `.gitignore` | Excludes virtual environments, IDE files, caches and environment files |
+| `docs/PROJECT_DOCUMENTATION.md` | Scope, evidence and limitations |
+| `docs/media/hand-landmark-tracking.png` | Cropped historical overlay image from the project annex |
 
-## Known limitations
+## Setup
 
-- Read-and-print only: no parsing, logging to file, plotting or sending data back.
-- Reads use a blocking `readline()` with a 1 second timeout (no busy polling). A partial line is printed only if the timeout expires with data pending.
-- The interactive prompt assumes Windows-style `COMn` names; use `--port` elsewhere.
-- Earlier revisions of the script never opened the port (the connection code was commented out). The port-opening code has now been enabled and the script wrapped in a `main()` guard so importing it has no side effects. The port is closed on `Ctrl+C`. This version has not been run against hardware.
+Target: **Windows x64, Python 3.11**.
 
-## Tests
-
-`test_serial_reader.py` contains standard-library `unittest` tests that replace `pyserial` with mocks. They check that importing the script and `--help` do not open or enumerate ports, and that `main()` prints a received line and closes the port on `Ctrl+C`. They are isolated unit tests, not hardware validation.
-
-```bash
-python -m unittest -v test_serial_reader
+```powershell
+py -3.11 -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python main.py
 ```
 
-## Publication and attribution notes
+Notes:
 
-No project-wide license has been selected; preserve existing third-party notices and confirm publication rights before choosing a license. This is historical project work and may involve collaborators; no claim of exclusive ownership is made. `pyserial` is a third-party library with its own license and is not bundled.
+- `requirements.txt` is a **proposed compatibility set**, not the author's original lock file or a reproduced environment. It pins `mediapipe==0.10.21`, `opencv-contrib-python==4.11.0.86` and `numpy==1.26.4`.
+- This set has **not yet been installed or tested with a camera here**.
+- The source uses the legacy `mp.solutions` API. Newer MediaPipe releases are not automatically interchangeable with it.
+- Native Windows ARM64 and Python 3.13 are not targets of this compatibility set.
+- The virtual environment that came with the original working folder was inconsistent and is not portable, so it is not included.
+- The pinned packages are not described as current or secure. Check their advisories before use.
+
+References:
+
+- MediaPipe 0.10.21 package page: <https://pypi.org/project/mediapipe/0.10.21/>
+- Upstream legacy Hands module: <https://github.com/google-ai-edge/mediapipe/blob/v0.10.21/mediapipe/python/solutions/hands.py>
+
+The PyPI JSON for 0.10.21 lists `win_amd64` wheels for CPython 3.9–3.12. The earlier 0.9.0 release is no longer available from that endpoint.
+
+## Limitations of the source
+
+- No gesture classification, mouse or keyboard control, serial/Arduino link, or hologram output. Mouse/keyboard control is part of the broader project title, not implemented in this file; no serial or hologram subsystem is claimed.
+- The webcam opens at import time.
+- There is no check that a frame was read. If the camera fails, `cv2.cvtColor` receives `None` and raises an error.
+- There is no exit key, and the camera and window are never released.
+- `draw_landmarks` is called inside the per-landmark loop, so the skeleton is drawn once for each of the 21 landmarks per hand per frame.
+- Only landmark 20 is highlighted. `Hands()` uses default settings.
+
+## Validation
+
+Run the dependency-free check with `python -I -B test_tracking.py`. It passed three substituted-module frame scenarios (zero, one and two hands); both Python files also passed AST parsing. These checks never open a camera or import the actual OpenCV/MediaPipe packages and do not validate detection accuracy. A pip dry-run resolved the proposed pins for Windows x64 / CPython 3.11; packages were not installed or exercised. The historical image is not a fresh run of this source.
+
+## Privacy
+
+The original working folder contained a private virtual environment and IDE settings. These are not published and are excluded by `.gitignore`. The documentation image is cropped and omits the face.
+
+## Attribution and license
+
+- No new license has been chosen for this repository, and none is granted by this documentation.
+- This README makes no claim of sole authorship or of originality of the MediaPipe hand-tracking technique.
+- Dependencies are third-party software under their own licenses: MediaPipe, OpenCV and NumPy.
+- This tree replaces an earlier, incorrect file set with the corrected source. Earlier Git history is preserved.

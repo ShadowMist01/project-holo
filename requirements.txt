@@ -1,1 +1,8 @@
-pyserial>=3.5
+# Proposed compatibility set for main.py (legacy mp.solutions API).
+# NOT the original lock file and NOT a reproduced environment.
+# Not yet installed or hardware-tested. Target: Windows x64, Python 3.11.
+# Not a security or "latest version" statement.
+# MediaPipe 0.10.21: https://pypi.org/project/mediapipe/0.10.21/
+mediapipe==0.10.21
+opencv-contrib-python==4.11.0.86
+numpy==1.26.4

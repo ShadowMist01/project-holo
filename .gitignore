@@ -1,25 +1,8 @@
-# Python
+venv/
+.venv/
+.idea/
 __pycache__/
 *.py[cod]
-.venv/
-venv/
-env/
-*.egg-info/
-.pytest_cache/
-
-# Secrets / environment
 .env
 .env.*
 !.env.example
-
-# Editors and OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-desktop.ini
-*.swp
-*~
-
-# Logs
-*.log
